@@ -12,7 +12,7 @@
 #include "driver/gptimer.h"
 #include "rom/ets_sys.h"
 #define NOATOMIC
-#include "components\esp_driver_gptimer\src\gptimer_priv.h" // Must add idf_build_set_property(COMPILE_OPTIONS "-I$ENV{IDF_PATH}" APPEND) in cmakefile and remove _Atomic in .h file
+//#include "components\esp_driver_gptimer\src\gptimer_priv.h" // Must add idf_build_set_property(COMPILE_OPTIONS "-I$ENV{IDF_PATH}" APPEND) in cmakefile and remove _Atomic in .h file
 #include "soc\gpio_reg.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -36,26 +36,28 @@ static const char *TAG = "main"; // For debug on ESP32...
 // Time management. gives millisecond and microsecond time...
 static void inline delayMicroseconds(int i) { ets_delay_us(i); }
 
-static volatile timg_hwtimer_reg_t *llustimer;
+#include "driver/gptimer.h"
+#include "freertos/semphr.h"
+#include "register\soc\timer_group_struct.h"
+
+gptimer_handle_t ustimer = NULL;
 void millisBegin() 
-{
-    gptimer_handle_t ustimer = NULL;
+{ 
     gptimer_config_t timer_config; memset(&timer_config, 0, sizeof(timer_config));
     timer_config.clk_src = GPTIMER_CLK_SRC_DEFAULT, timer_config.direction = GPTIMER_COUNT_UP, timer_config.resolution_hz = 1000000; // 1MHz, 1 tick=1us
     ESP_ERROR_CHECK(gptimer_new_timer(&timer_config, &ustimer));
     ESP_ERROR_CHECK(gptimer_enable(ustimer));
     ESP_ERROR_CHECK(gptimer_start(ustimer));
-    llustimer= ustimer->hal.dev->hw_timer+ustimer->hal.timer_id;
-}
-uint32_t IRAM_ATTR millis()
-{ 
-    llustimer->update.tx_update = 1; while (llustimer->update.tx_update) { }
-    return ((uint64_t)llustimer->hi.tx_hi << 22) | ((llustimer->lo.tx_lo)>>10);
 }
 uint32_t IRAM_ATTR micros()
 { 
-    llustimer->update.tx_update = 1; while (llustimer->update.tx_update) { }
-    return llustimer->lo.tx_lo;
+    TIMERG0.hw_timer[0].update.tx_update = 1; while (TIMERG0.hw_timer[0].update.tx_update) { }
+    return TIMERG0.hw_timer[0].lo.tx_lo;
+}
+uint32_t IRAM_ATTR millis()
+{
+    TIMERG0.hw_timer[0].update.tx_update = 1; while (TIMERG0.hw_timer[0].update.tx_update) { }
+    return ((uint64_t)TIMERG0.hw_timer[0].hi.tx_hi << 22) | ((TIMERG0.hw_timer[0].lo.tx_lo)>>10);
 }
 
 
@@ -803,16 +805,16 @@ static bool IRAM_ATTR stepperTick(gptimer_handle_t timer, const gptimer_alarm_ev
 static gptimer_handle_t gptimer;
 static int32_t ButeeDownPos= -1;
 static uint32_t moveTimeout= 0;
-void stopStartStepperTimer(uint32_t keys, utin32_t nowms)
+void stopStartStepperTimer(uint32_t keys, uint32_t nowms)
 {
     static bool timerStarted= false;
     // Stop on end of movement detection...
     if ((keys&ButeeDown)!=0 && ButeeDownPos==-1) ButeeDownPos= MFocus.pos/32;
     if (MFocus.dst<MFocus.pos && (keys&ButeeDown)!=0) MFocus.kill();
     if (MFocus.dst>MFocus.pos && (keys&ButeeUp)!=0) MFocus.kill();
-    if (moveTimeout!=0 && int32_t(now-moveTimeout)>0) MFocus.kill(); // kill any moves after 10s. Else it looks like there is an issue some times with motor not stopping..
+    if (moveTimeout!=0 && int32_t(nowms-moveTimeout)>0) MFocus.kill(); // kill any moves after 10s. Else it looks like there is an issue some times with motor not stopping..
     // start/stop timer (helps wifi) depending on motor need to move
-    if (!timerStarted && MFocus.dst!=MFocus.pos) { ESP_ERROR_CHECK(gptimer_start(gptimer)); timerStarted= true; moveTimeout= now+1000*10; } // start the timer
+    if (!timerStarted && MFocus.dst!=MFocus.pos) { ESP_ERROR_CHECK(gptimer_start(gptimer)); timerStarted= true; moveTimeout= nowms+1000*10; } // start the timer
     if (timerStarted && MFocus.dst==MFocus.pos) { ESP_ERROR_CHECK(gptimer_stop(gptimer)); timerStarted= false; moveTimeout= 0;}
 }
 void initSteppers()

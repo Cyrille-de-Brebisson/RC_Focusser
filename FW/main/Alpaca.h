@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include <malloc.h>
 #ifndef _WIN32
 #include "nvs_flash.h" // esp32 data storage...
 #include "nvs.h"
