@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.16.0)
+include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+project(RC600_Focusser)
+idf_build_set_property(COMPILE_OPTIONS "-Wno-error=misleading-indentation" APPEND)
+idf_build_set_property(COMPILE_OPTIONS "-I$ENV{IDF_PATH}" APPEND)
+#idf_build_set_property(COMPILE_OPTIONS "-mtext-section-literals" APPEND)
