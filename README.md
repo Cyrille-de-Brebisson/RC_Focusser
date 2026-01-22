@@ -10,10 +10,10 @@ There is also a manual control through a small LCD and keys.
 The focus is done through 3 motors which can be used together to focus, and independentely to perform tilt.
 
 Here is the final product (around 20cm high)
-![Finish](HW.jpg)
+![Finish](mecha.jpg)
 
 and on the telescope
-![scope](on scope.png)
+![scope](on%20scope.png)
 
 Here is a view of the elec part
 ![elec](HW.jpg)
